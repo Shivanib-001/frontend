@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>System Check Panel</title>
+
+<style>
+body{
+    font-family: Arial;
+    text-align:center;
+    margin-top:80px;
+}
+
+button{
+    width:250px;
+    height:60px;
+    margin:10px;
+    font-size:18px;
+    border:none;
+    border-radius:10px;
+    background-color:gray;
+    color:white;
+    cursor:pointer;
+}
+
+.green{
+    background-color:green !important;
+}
+
+.red{
+    background-color:red !important;
+}
+
+</style>
+</head>
+
+<body>
+
+<h2>System Status Check</h2>
+
+<button id="steering" onclick="runCheck('steering')">Check Steering Response</button><br>
+
+<button id="gnss" onclick="runCheck('gnss')">Start GNSS Data</button><br>
+
+<button id="ntrip" onclick="runCheck('ntrip')">Check NTRIP Status</button><br>
+
+<button id="setntrip" onclick="ntrip()">Set NTRIP Client</button><br>
+
+<button id="goahead" onclick="goNext()">Go Ahead</button>
+
+<script>
+
+function ntrip()
+{
+
+    window.location.href="/ntripcl"
+}
+
+
+
+function goNext()
+{
+    /*if(document.querySelectorAll(".green").length < 3)
+    {
+        alert("Complete all checks first!")
+        return
+    }*/
+
+    window.location.href="/home"
+}
+
+async function runCheck(type)
+{
+    const btn = document.getElementById(type)
+
+    btn.style.backgroundColor="orange"
+
+    const response = await fetch(`/check/${type}`)
+    const data = await response.json()
+
+    if(data.status === "ok")
+    {
+        btn.classList.remove("red")
+        btn.classList.add("green")
+        
+     
+    }
+    else
+    {
+        btn.classList.remove("green")
+        btn.classList.add("red")
+    }
+}
+
+</script>
+
+</body>
+</html>

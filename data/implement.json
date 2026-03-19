@@ -1,0 +1,22 @@
+[
+    {
+        "type": "Rotavator",
+        "name": "rotavator1",
+        "width": 1.9
+    },
+    {
+        "type": "Cultivator",
+        "name": "cultivator test",
+        "width": 2.2
+    },
+    {
+        "type": "Rotavator",
+        "name": "try",
+        "width": 2.0
+    },
+    {
+        "type": "Rotavator",
+        "name": "Test",
+        "width": 2.0
+    }
+]

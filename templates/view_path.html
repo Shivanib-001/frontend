@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>View Path</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<style>
+#map{
+    height:90vh;
+}
+button{
+    margin:10px;
+    padding:10px;
+}
+</style>
+</head>
+
+<body>
+
+<button onclick="goBack()">⬅ Back</button>
+<button onclick="beginTracking()">Start tracking</button>
+<button onclick="stopTracking()">Stop tracking</button>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+
+/*---------------- MAP INIT ----------------*/
+const ACCESS_TOKEN = "pk.eyJ1Ijoic3VtaXRjaGF0dGVyamVlIiwiYSI6ImNrd2prODhoazB6enIycHBrZmRrY2FtMGkifQ.WS22x5YJykpK9aFATKT8EA";
+
+const map = L.map("map").setView([28.436, 77.304], 18);
+
+L.tileLayer(`https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.png?access_token=${ACCESS_TOKEN}`, {
+    maxZoom: 24,
+    tileSize: 512,
+    zoomOffset: -1,
+}).addTo(map);
+
+const data = JSON.parse(localStorage.getItem("selectedPath"));
+
+/* FARM */
+const farmPoly = L.polygon(data.farm.boundary, {color:"yellow"}).addTo(map);
+
+/* PATH */
+const pathLine = L.polyline(data.path, {color:"red"}).addTo(map);
+
+map.fitBounds(farmPoly.getBounds());
+
+function goBack()
+{
+    window.location.href = "/paths";
+}
+
+ /*----------------------------live location connection--------------------------------------*/
+
+let eventSource = null;
+        let latestMarker = null;
+        let livePath = L.polyline([], { color: 'blue',weight:5 }).addTo(map);
+ 
+
+        
+        const MAX_POINTS = 1000;
+        let lastPanTime = 0;
+        const PAN_INTERVAL = 2000; // ms
+        var lati;var longi; 
+        function beginTracking() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource("/livelocation");
+
+            eventSource.onmessage = function (e) {
+                const data = JSON.parse(e.data);
+                lati=data.latitude;
+                longi=data.longitude;
+               //latk = data.latk; lonk=data.lonk;
+                if(lati!=this.lati || longi!=this.longi){
+                
+                updateLiveLocation(data.latitude, data.longitude);
+                
+                }
+                this.lati=lati;
+                this.longi=longi;
+            
+            };
+
+            eventSource.onerror = function (e) {
+                console.error("Stream error:", e);
+                stopTracking();
+            };
+        }
+
+        // Stop streaming
+        function stopTracking() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                console.log("Tracking stopped.");
+            }
+            
+            fetch('/stop')
+      		.then(response => response.json())
+      		.then(data => {
+       			 console.log('GET response:', data);
+        
+      		})
+      		.catch(error => {
+       			 console.error('Error:', error);
+      		});
+        	}
+
+        // Limit points in polyline
+        function updateLiveLocation(latitude, longitude, line_color) {
+            if (!latitude || !longitude) return;
+
+            const latLng = [latitude, longitude];
+          
+            let latLngs = livePath.getLatLngs();
+            latLngs.push(latLng);
+            if (latLngs.length > MAX_POINTS) {
+                latLngs.shift();
+            }
+            livePath.setLatLngs(latLngs);
+
+            if (latestMarker) {
+                map.removeLayer(latestMarker);
+            }
+            latestMarker = L.marker(latLng).addTo(map);
+
+           const now = Date.now();
+            if (now - lastPanTime > PAN_INTERVAL) {
+                map.setView(latLng, 22);
+                lastPanTime = now;
+            }
+        }
+
+ 
+
+
+
+</script>
+
+</body>
+</html>

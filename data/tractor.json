@@ -1,0 +1,17 @@
+[
+    {
+        "name": "test1",
+        "wheelbase": 1.0,
+        "radius": 2.0
+    },
+    {
+        "name": "ft 6065",
+        "wheelbase": 2.2,
+        "radius": 3.4
+    },
+    {
+        "name": "Ft6065",
+        "wheelbase": 5.0,
+        "radius": 3.0
+    }
+]

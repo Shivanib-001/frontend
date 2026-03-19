@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Planner</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+<style>
+
+body{
+    margin:0;
+    font-family: Arial;
+    background:#2c3e50;
+}
+
+/* MAP */
+#map{
+    height:100vh;
+    width:100%;
+}
+
+/* HEADER */
+#header{
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    z-index:1000;
+    background:rgba(0,0,0,0.75);
+    padding:10px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+/* CONTROLS */
+.controls{
+    display:flex;
+    gap:10px;
+}
+
+select{
+    padding:8px;
+    border-radius:6px;
+    border:none;
+}
+
+/* BUTTONS */
+.buttons{
+    display:flex;
+    gap:10px;
+}
+
+.btn{
+    padding:8px 14px;
+    border:none;
+    border-radius:6px;
+    color:white;
+    cursor:pointer;
+    font-weight:bold;
+}
+
+.plot{ background:#3498db; }
+.path{ background:#9b59b6; }
+.save{ background:#2ecc71; }
+.back{ background:#7f8c8d; }
+
+/* STATUS */
+#status{
+    font-size:14px;
+    color:#ecf0f1;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<div id="header">
+
+    <div class="controls">
+        <select id="tractorSelect"></select>
+        <select id="implementSelect"></select>
+        <select id="farmSelect" onchange="onFarmChange()"></select>
+    </div>
+
+    <div class="buttons">
+        <button class="btn plot" onclick="fetchReq()">Plot</button>
+        <button class="btn path" onclick="displayPath()">Path</button>
+        <button class="btn save" onclick="saveConfig()">💾 Save</button>
+        <button class="btn back" onclick="goBack()">⬅ Back</button>
+    </div>
+
+    <div id="status"></div>
+
+</div>
+
+<div id="map"></div>
+
+<script>
+
+/*---------------- MAP ----------------*/
+const ACCESS_TOKEN = "pk.eyJ1Ijoic3VtaXRjaGF0dGVyamVlIiwiYSI6ImNrd2prODhoazB6enIycHBrZmRrY2FtMGkifQ.WS22x5YJykpK9aFATKT8EA";
+
+const map = L.map("map").setView([28.436, 77.304], 19);
+
+L.tileLayer(`https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.png?access_token=${ACCESS_TOKEN}`, {
+    maxZoom: 24,
+    tileSize: 512,
+    zoomOffset: -1,
+}).addTo(map);
+
+let farmPolygon = null;
+let pathPolyline = null;
+let generatedPath = [];
+
+/*---------------- DATA ----------------*/
+let tractors = [], implements = [], farms = [];
+
+/*---------------- LOAD DROPDOWNS ----------------*/
+async function loadData()
+{
+    tractors = await (await fetch("/get_tractors")).json();
+    implements = await (await fetch("/get_implements")).json();
+    farms = await (await fetch("/get_farms")).json();
+
+    fillDropdown("tractorSelect", tractors);
+    fillDropdown("implementSelect", implements);
+    fillDropdown("farmSelect", farms);
+}
+
+function fillDropdown(id, data)
+{
+    const sel = document.getElementById(id);
+    sel.innerHTML = "<option value=''>Select</option>";
+
+    data.forEach(d => {
+        const opt = document.createElement("option");
+        opt.value = d.name;
+        opt.text = d.name;
+        sel.appendChild(opt);
+    });
+}
+
+/*---------------- FARM SELECT ----------------*/
+function onFarmChange()
+{
+    const name = document.getElementById("farmSelect").value;
+    const farm = farms.find(f => f.name === name);
+
+    if(!farm) return;
+
+    drawFarm(farm.boundary);
+}
+
+function drawFarm(points)
+{
+    if(farmPolygon) map.removeLayer(farmPolygon);
+
+    farmPolygon = L.polygon(points, {color:"yellow"}).addTo(map);
+    map.fitBounds(farmPolygon.getBounds());
+}
+
+/*---------------- PLOT REQUEST ----------------*/
+function fetchReq()
+{
+    const tractorName = document.getElementById("tractorSelect").value;
+    const implementName = document.getElementById("implementSelect").value;
+    const farmName = document.getElementById("farmSelect").value;
+
+    if(!tractorName || !implementName || !farmName)
+    {
+        showStatus("❌ Select all fields", "red");
+        return;
+    }
+
+    const tractor = tractors.find(t => t.name === tractorName);
+    const implement = implements.find(i => i.name === implementName);
+    const farm = farms.find(f => f.name === farmName);
+
+    const data = { tractor, implement, farm };
+
+    fetch("/foo", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(data)
+    });
+
+    showStatus("📡 Data sent for path planning", "yellow");
+}
+
+/*---------------- DISPLAY PATH ----------------*/
+function displayPath()
+{
+    fetch("/path")
+    .then(res => res.json())
+    .then(data => {
+
+        generatedPath = data.track;
+
+        if(pathPolyline) map.removeLayer(pathPolyline);
+
+        pathPolyline = L.polyline(generatedPath, {color:"red"}).addTo(map);
+        //map.fitBounds(pathPolyline.getBounds());
+
+        showStatus("✅ Path displayed", "green");
+    });
+}
+
+/*---------------- SAVE CONFIG ----------------*/
+async function saveConfig()
+{
+    const tractorName = document.getElementById("tractorSelect").value;
+    const implementName = document.getElementById("implementSelect").value;
+    const farmName = document.getElementById("farmSelect").value;
+
+    if(!tractorName || !implementName || !farmName)
+    {
+        showStatus("❌ Select all fields", "red");
+        return;
+    }
+
+    if(generatedPath.length === 0)
+    {
+        showStatus("❌ Generate path first", "red");
+        return;
+    }
+
+    // ✅ ASK PATH NAME
+    const pathName = prompt("Enter Path Name:");
+
+    if(!pathName || pathName.trim() === "")
+    {
+        showStatus("❌ Path name required", "red");
+        return;
+    }
+
+    const data = {
+        name: pathName.trim(),   // ⭐ NEW
+        tractor: tractors.find(t => t.name === tractorName),
+        implement: implements.find(i => i.name === implementName),
+        farm: farms.find(f => f.name === farmName),
+        path: generatedPath
+    };
+
+    const res = await fetch("/save_config",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(data)
+    });
+
+    const result = await res.json();
+
+    if(result.status === "saved")
+        showStatus("💾 Saved: " + pathName, "green");
+    else
+        showStatus("❌ Save Failed", "red");
+}
+
+/*---------------- BACK ----------------*/
+function goBack()
+{
+    window.location.href = "/paths";
+}
+
+/*---------------- STATUS ----------------*/
+function showStatus(msg, color)
+{
+    const el = document.getElementById("status");
+    el.innerHTML = msg;
+    el.style.color = color;
+}
+
+/*---------------- INIT ----------------*/
+loadData();
+
+</script>
+
+</body>
+</html>
