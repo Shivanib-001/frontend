@@ -9,7 +9,7 @@ import socket
 #---------------------ENTER CONFIGURATION HERE----------------
 
 #specify file paths
-gnss_data="/home/rnil/Documents/path_plan/ntrip_dev-main/c/thread/test.json"    # file path for current location data 
+gnss_data="data/test.json"    # file path for current location data 
 save_path='data/path_points.json'   # file path to store path generated from path planning module
 
 #Initialize variables
@@ -54,7 +54,7 @@ def check(test):
 
     elif test == "gnss":
         
-        proc = Run_process("/home/rnil/Documents/path_plan/ntrip_dev-main/c/thread","obj/ntrv","123456")
+        proc = Run_process("/data","../obj/ntrv","123456")
         #proc.run_with_sudo()
         proc.runobject()
         
@@ -168,8 +168,8 @@ def connect_ntrip():
     
     global runner
     runner = Run_process(
-    path="/home/rnil/Documents/path_plan/ntrip_dev-main/c/test_ntrip",
-    proc_name="./test",
+    path="data/",
+    proc_name="../obj/test",
     password="",
     args=[host, str(port), mount, user, pas] 
     )
@@ -550,7 +550,7 @@ def view_path():
 
 path_runner = Run_process(
     path="data/",            
-    proc_name="./test_points_can",          
+    proc_name="../obj/test_points_can",          
     password=None,             
     args=[]                    
 )
