@@ -13,7 +13,7 @@ body{
 }
 
 #map{
-    height:70vh;
+    height:85vh;
     width:100%;
 }
 
@@ -122,23 +122,21 @@ function clearPolygon()
 }
 
 /*---------------------------- GPS LOCATION --------------------------------------*/
+let cur_marker=null;
 function getLocation()
 {
-    if(navigator.geolocation)
-    {
-        navigator.geolocation.getCurrentPosition(position => {
+    fetch("/curr_loc")
+    .then(res => res.json())
+    .then(e => {
 
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-
-            map.setView([lat, lng], 19);
-
-            L.marker([lat, lng]).addTo(map);
-
-        }, () => {
-            alert("Unable to fetch location")
-        });
+    const data = JSON.parse(e);
+    if (cur_marker){
+    map.removeLayer(cur_marker);
     }
+    cur_marker=L.marker([data.latitude,data.longitude]).addTo(map);
+    map.setView([data.latitude,data.longitude], 19);
+    })
+
 }
 
 /*---------------------------- SAVE --------------------------------------*/

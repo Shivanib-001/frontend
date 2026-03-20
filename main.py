@@ -1,6 +1,7 @@
 import json
 from flask import Flask, request, render_template, jsonify,  Response
 import os
+import time
 from Utils.gnss_read import GNSSData 
 from Utils.generate_path import Path_plan
 from Utils.run import Run_process
@@ -25,6 +26,7 @@ gcp=[]
 proc_ntrip=""
 def event_stream():
     while True:
+        time.sleep(0.5)
         try:
             data = data_read.last_data()
             if data:
@@ -34,7 +36,10 @@ def event_stream():
         except Exception as e:
             print(f"Error in stream: {e}")
             break
-                
+
+ 
+
+           
 @app.route("/")
 def root():
     return render_template("check.html")
@@ -404,6 +409,19 @@ def get_farms():
             return jsonify(json.load(f))
     return jsonify([])
 
+@app.route("/curr_loc")
+def get_loc():
+    try:
+        data = data_read.last_data()
+        if data:
+            print(data)
+            return jsonify(json.dumps(data))
+        else:
+            return jsonify([])
+    except Exception as e:
+        print(f"Error in stream: {e}")
+
+
 @app.route("/delete_farm", methods=["POST"])
 def delete_farm():
 
@@ -481,7 +499,7 @@ def save_config():
         else:
             data = []
 
-        # 🚫 prevent duplicate path names
+        # prevent duplicate path names
         for d in data:
             if d["name"] == new_data["name"]:
                 return jsonify({
@@ -525,10 +543,34 @@ def delete_config():
 
     return jsonify({"status":"deleted"})
 
+#----------------------start oeration and  stop---------------------
 @app.route("/view_path")
 def view_path():
     return render_template("view_path.html")
 
+path_runner = Run_process(
+    path="data/",            
+    proc_name="./test_points_can",          
+    password=None,             
+    args=[]                    
+)
+
+@app.route("/startop", methods=['GET'])
+def startop():
+    if path_runner.process is None:
+        result = path_runner.runobject()
+        return jsonify({"response": "started", "proc": result})
+    else:
+        return jsonify({"response": "already running"})
+        
+@app.route("/stopop", methods=['GET'])
+def stopop():
+    if path_runner.process is not None:
+        msg = path_runner.stopobject()
+        path_runner.process = None   # ✅ reset
+        return jsonify({"response": msg})
+    else:
+        return jsonify({"response": "not running"})
 @app.route("/settings")
 def settings():
     return "<h1>Settings Page</h1>"

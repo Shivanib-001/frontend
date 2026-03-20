@@ -19,8 +19,11 @@ button{
 <body>
 
 <button onclick="goBack()">⬅ Back</button>
-<button onclick="beginTracking()">Start tracking</button>
-<button onclick="stopTracking()">Stop tracking</button>
+
+<button id="trackBtn" onclick="toggleTracking()">Start Tracking</button>
+
+<button id="opBtn" onclick="toggleOperation()">Start Operation</button>
+
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -53,9 +56,21 @@ function goBack()
     window.location.href = "/paths";
 }
 
+let isTracking = false;
+
+function toggleTracking() {
+    if (isTracking) {
+        stopTracking();
+    } else {
+        beginTracking();
+    }
+}
+
+
+
  /*----------------------------live location connection--------------------------------------*/
 
-let eventSource = null;
+	let eventSource = null;
         let latestMarker = null;
         let livePath = L.polyline([], { color: 'blue',weight:5 }).addTo(map);
  
@@ -65,52 +80,56 @@ let eventSource = null;
         let lastPanTime = 0;
         const PAN_INTERVAL = 2000; // ms
         var lati;var longi; 
-        function beginTracking() {
-            if (eventSource) {
-                eventSource.close();
-            }
+        
+	function beginTracking() {
+	    if (eventSource) {
+		eventSource.close();
+	    }
 
-            eventSource = new EventSource("/livelocation");
+	    eventSource = new EventSource("/livelocation");
 
-            eventSource.onmessage = function (e) {
-                const data = JSON.parse(e.data);
-                lati=data.latitude;
-                longi=data.longitude;
-               //latk = data.latk; lonk=data.lonk;
-                if(lati!=this.lati || longi!=this.longi){
-                
-                updateLiveLocation(data.latitude, data.longitude);
-                
-                }
-                this.lati=lati;
-                this.longi=longi;
-            
-            };
+	    isTracking = true;
+	    document.getElementById("trackBtn").innerText = "Stop Tracking";
 
-            eventSource.onerror = function (e) {
-                console.error("Stream error:", e);
-                stopTracking();
-            };
-        }
+	    eventSource.onmessage = function (e) {
+		const data = JSON.parse(e.data);
+		lati = data.latitude;
+		longi = data.longitude;
+
+		if (lati != this.lati || longi != this.longi) {
+		    updateLiveLocation(data.latitude, data.longitude);
+		}
+
+		this.lati = lati;
+		this.longi = longi;
+	    };
+
+	    eventSource.onerror = function (e) {
+		console.error("Stream error:", e);
+		stopTracking();   // ✅ this will also reset button
+	    };
+	}
 
         // Stop streaming
-        function stopTracking() {
-            if (eventSource) {
-                eventSource.close();
-                eventSource = null;
-                console.log("Tracking stopped.");
-            }
-            
-            fetch('/stop')
-      		.then(response => response.json())
-      		.then(data => {
-       			 console.log('GET response:', data);
-        
-      		})
-      		.catch(error => {
-       			 console.error('Error:', error);
-      		});
-        	}
+	function stopTracking() {
+	    if (eventSource) {
+		eventSource.close();
+		eventSource = null;
+		console.log("Tracking stopped.");
+	    }
+
+	    isTracking = false;
+	    document.getElementById("trackBtn").innerText = "Start Tracking";
+
+	    fetch('/stop')
+		.then(response => response.json())
+		.then(data => {
+		    console.log('GET response:', data);
+		})
+		.catch(error => {
+		    console.error('Error:', error);
+		});
+	}
 
         // Limit points in polyline
         function updateLiveLocation(latitude, longitude, line_color) {
@@ -137,6 +156,47 @@ let eventSource = null;
             }
         }
 
+//----------------------------------start/stop operation --------------------------------
+let isOperating=false
+function toggleOperation() {
+    if (isOperating) {
+        stopOp();
+    } else {
+        beginOp();
+    }
+}
+
+	function beginOp(){
+	   
+	    isOperating = true;
+	    document.getElementById("opBtn").innerText = "Stop operation";
+
+	  
+	    fetch('/startop')
+		.then(response => response.json())
+		.then(data => {
+		    console.log('GET response:', data);
+		})
+		.catch(error => {
+		    console.error('Error:', error);
+		});
+	}
+
+        // Stop streaming
+	function stopOp() {
+	   
+	    isOperating = false;
+	    document.getElementById("opBtn").innerText = "Start Operation";
+
+	    fetch('/stopop')
+		.then(response => response.json())
+		.then(data => {
+		    console.log('GET response:', data);
+		})
+		.catch(error => {
+		    console.error('Error:', error);
+		});
+	}
  
 
 
